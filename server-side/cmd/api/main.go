@@ -55,11 +55,12 @@ func main() {
 		log.Printf("Current database migration version: %d (dirty: %v)", version, dirty)
 	}
 
-	// Initialize repositories
-	userRepo := postgresql.NewUserRepository(db)
-	moneyFlowRepo := postgresql.NewMoneyFlowRepository(db)
-	authProviderRepo := postgresql.NewAuthProviderRepository(db)
-	userAuthRepo := postgresql.NewUserAuthRepository(db)
+	// Initialize repositories (use DB abstraction wrapper)
+	dbConn := postgresql.NewDB(db)
+	userRepo := postgresql.NewUserRepository(dbConn)
+	moneyFlowRepo := postgresql.NewMoneyFlowRepository(dbConn)
+	authProviderRepo := postgresql.NewAuthProviderRepository(dbConn)
+	userAuthRepo := postgresql.NewUserAuthRepository(dbConn)
 
 	_ = moneyFlowRepo
 

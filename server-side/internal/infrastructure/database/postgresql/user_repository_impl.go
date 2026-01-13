@@ -12,11 +12,11 @@ import (
 )
 
 type userRepositoryImpl struct {
-	db *gorm.DB
+	db repository.DB
 }
 
 // NewUserRepository creates a new user repository implementation
-func NewUserRepository(db *gorm.DB) repository.UserRepository {
+func NewUserRepository(db repository.DB) repository.UserRepository {
 	return &userRepositoryImpl{db: db}
 }
 
@@ -26,7 +26,8 @@ func (r *userRepositoryImpl) Create(ctx context.Context, user *domain.User) erro
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Create(model).Error; err != nil {
+	res := db.Create(model)
+	if err := res.Error(); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return domain.ErrDuplicatePhoneNumber
 		}
@@ -47,7 +48,8 @@ func (r *userRepositoryImpl) FindByID(ctx context.Context, id uuid.UUID) (*domai
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Where("id = ?", id).First(&model).Error; err != nil {
+	res := db.Where("id = ?", id).First(&model)
+	if err := res.Error(); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrNotFound
 		}
@@ -63,7 +65,8 @@ func (r *userRepositoryImpl) FindByPhoneNumber(ctx context.Context, phoneNumber 
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Where("phone_number = ?", phoneNumber).First(&model).Error; err != nil {
+	res := db.Where("phone_number = ?", phoneNumber).First(&model)
+	if err := res.Error(); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrNotFound
 		}
@@ -90,11 +93,11 @@ func (r *userRepositoryImpl) Update(ctx context.Context, user *domain.User) erro
 			"updated_at":   model.UpdatedAt,
 		})
 
-	if result.Error != nil {
-		return result.Error
+	if err := result.Error(); err != nil {
+		return err
 	}
 
-	if result.RowsAffected == 0 {
+	if result.RowsAffected() == 0 {
 		return domain.ErrConflict
 	}
 
@@ -107,11 +110,11 @@ func (r *userRepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
 
 	result := db.Delete(&UserModel{}, "id = ?", id)
 
-	if result.Error != nil {
-		return result.Error
+	if err := result.Error(); err != nil {
+		return err
 	}
 
-	if result.RowsAffected == 0 {
+	if result.RowsAffected() == 0 {
 		return domain.ErrNotFound
 	}
 
@@ -124,10 +127,11 @@ func (r *userRepositoryImpl) List(ctx context.Context, limit, offset int) ([]*do
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Limit(limit).
+	res := db.Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
-		Find(&models).Error; err != nil {
+		Find(&models)
+	if err := res.Error(); err != nil {
 		return nil, err
 	}
 

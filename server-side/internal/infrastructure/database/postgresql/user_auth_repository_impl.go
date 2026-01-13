@@ -11,11 +11,11 @@ import (
 )
 
 type userAuthRepositoryImpl struct {
-	db *gorm.DB
+	db repository.DB
 }
 
 // NewUserAuthRepository creates a new user auth repository implementation
-func NewUserAuthRepository(db *gorm.DB) repository.UserAuthRepository {
+func NewUserAuthRepository(db repository.DB) repository.UserAuthRepository {
 	return &userAuthRepositoryImpl{db: db}
 }
 
@@ -25,7 +25,8 @@ func (r *userAuthRepositoryImpl) Create(ctx context.Context, userAuth *repositor
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Create(model).Error; err != nil {
+	res := db.Create(model)
+	if err := res.Error(); err != nil {
 		return err
 	}
 
@@ -39,8 +40,9 @@ func (r *userAuthRepositoryImpl) FindByCredentialID(ctx context.Context, credent
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Where("credential_id = ? AND auth_provider_id = ?", credentialID, authProviderID).
-		First(&model).Error; err != nil {
+	res := db.Where("credential_id = ? AND auth_provider_id = ?", credentialID, authProviderID).
+		First(&model)
+	if err := res.Error(); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrNotFound
 		}
@@ -56,8 +58,9 @@ func (r *userAuthRepositoryImpl) FindByUserIDAndProvider(ctx context.Context, us
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Where("user_id = ? AND auth_provider_id = ?", userID, authProviderID).
-		First(&model).Error; err != nil {
+	res := db.Where("user_id = ? AND auth_provider_id = ?", userID, authProviderID).
+		First(&model)
+	if err := res.Error(); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrNotFound
 		}
@@ -82,11 +85,11 @@ func (r *userAuthRepositoryImpl) Update(ctx context.Context, userAuth *repositor
 			"updated_at":         model.UpdatedAt,
 		})
 
-	if result.Error != nil {
-		return result.Error
+	if err := result.Error(); err != nil {
+		return err
 	}
 
-	if result.RowsAffected == 0 {
+	if result.RowsAffected() == 0 {
 		return domain.ErrNotFound
 	}
 
@@ -99,11 +102,11 @@ func (r *userAuthRepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error
 
 	result := db.Delete(&UserAuthModel{}, "id = ?", id)
 
-	if result.Error != nil {
-		return result.Error
+	if err := result.Error(); err != nil {
+		return err
 	}
 
-	if result.RowsAffected == 0 {
+	if result.RowsAffected() == 0 {
 		return domain.ErrNotFound
 	}
 

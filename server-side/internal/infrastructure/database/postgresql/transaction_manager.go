@@ -8,48 +8,44 @@ import (
 	"gorm.io/gorm"
 )
 
-// transactionManager implements the TransactionManager interface using GORM
+// transactionManager implements the TransactionManager interface using the
+// repository.DB abstraction (backed by a GORM wrapper in this package).
 type transactionManager struct {
-	db *gorm.DB
+	db repository.DB
 }
 
-// NewTransactionManager creates a new GORM-based transaction manager
+// NewTransactionManager creates a new transaction manager. It accepts the
+// concrete *gorm.DB and wraps it so the rest of the code can depend on
+// repository.DB instead of *gorm.DB.
 func NewTransactionManager(db *gorm.DB) repository.TransactionManager {
-	return &transactionManager{db: db}
+	return &transactionManager{db: NewDB(db)}
 }
 
 // WithTransaction executes a function within a database transaction
 func (tm *transactionManager) WithTransaction(ctx context.Context, fn func(txCtx context.Context) error) error {
-	// Check if already in a transaction
+	// If already in a transaction, just execute the function
 	if tm.IsInTransaction(ctx) {
-		// Already in a transaction, just execute the function
 		return fn(ctx)
 	}
 
-	// Start a new transaction
-	return tm.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return tm.db.Transaction(func(tx repository.DB) error {
 		// Create new context with transaction
 		txCtx := repository.SetTransactionInContext(ctx, tx)
-
-		// Execute the function
 		return fn(txCtx)
 	})
 }
 
 // BeginTransaction starts a new transaction
 func (tm *transactionManager) BeginTransaction(ctx context.Context) (context.Context, error) {
-	// Check if already in a transaction
 	if tm.IsInTransaction(ctx) {
 		return ctx, nil
 	}
 
-	// Begin transaction
-	tx := tm.db.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", tx.Error)
+	tx, err := tm.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	// Store transaction in context
 	txCtx := repository.SetTransactionInContext(ctx, tx)
 	return txCtx, nil
 }
@@ -61,12 +57,12 @@ func (tm *transactionManager) CommitTransaction(ctx context.Context) error {
 		return fmt.Errorf("no active transaction to commit")
 	}
 
-	gormTx, ok := tx.(*gorm.DB)
+	dbTx, ok := tx.(repository.DB)
 	if !ok {
 		return fmt.Errorf("invalid transaction type in context")
 	}
 
-	if err := gormTx.Commit().Error; err != nil {
+	if err := dbTx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
@@ -80,12 +76,12 @@ func (tm *transactionManager) RollbackTransaction(ctx context.Context) error {
 		return fmt.Errorf("no active transaction to rollback")
 	}
 
-	gormTx, ok := tx.(*gorm.DB)
+	dbTx, ok := tx.(repository.DB)
 	if !ok {
 		return fmt.Errorf("invalid transaction type in context")
 	}
 
-	if err := gormTx.Rollback().Error; err != nil {
+	if err := dbTx.Rollback(); err != nil {
 		return fmt.Errorf("failed to rollback transaction: %w", err)
 	}
 
@@ -99,11 +95,11 @@ func (tm *transactionManager) IsInTransaction(ctx context.Context) bool {
 
 // GetDB returns the appropriate database connection (transaction or regular)
 // This is a helper for repositories to use
-func GetDB(ctx context.Context, db *gorm.DB) *gorm.DB {
+func GetDB(ctx context.Context, db repository.DB) repository.DB {
 	tx := repository.GetTransactionFromContext(ctx)
 	if tx != nil {
-		if gormTx, ok := tx.(*gorm.DB); ok {
-			return gormTx
+		if dbTx, ok := tx.(repository.DB); ok {
+			return dbTx
 		}
 	}
 	return db.WithContext(ctx)

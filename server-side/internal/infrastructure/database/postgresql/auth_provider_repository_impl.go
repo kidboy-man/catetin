@@ -10,11 +10,11 @@ import (
 )
 
 type authProviderRepositoryImpl struct {
-	db *gorm.DB
+	db repository.DB
 }
 
 // NewAuthProviderRepository creates a new auth provider repository implementation
-func NewAuthProviderRepository(db *gorm.DB) repository.AuthProviderRepository {
+func NewAuthProviderRepository(db repository.DB) repository.AuthProviderRepository {
 	return &authProviderRepositoryImpl{db: db}
 }
 
@@ -24,7 +24,8 @@ func (r *authProviderRepositoryImpl) FindByName(ctx context.Context, name string
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Where("name = ?", name).First(&model).Error; err != nil {
+	res := db.Where("name = ?", name).First(&model)
+	if err := res.Error(); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil // Return nil if not found (not an error for this case)
 		}
@@ -40,7 +41,8 @@ func (r *authProviderRepositoryImpl) FindByID(ctx context.Context, id uuid.UUID)
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Where("id = ?", id).First(&model).Error; err != nil {
+	res := db.Where("id = ?", id).First(&model)
+	if err := res.Error(); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -56,7 +58,8 @@ func (r *authProviderRepositoryImpl) Create(ctx context.Context, provider *repos
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Create(model).Error; err != nil {
+	res := db.Create(model)
+	if err := res.Error(); err != nil {
 		return err
 	}
 

@@ -12,11 +12,11 @@ import (
 )
 
 type moneyFlowRepositoryImpl struct {
-	db *gorm.DB
+	db repository.DB
 }
 
 // NewMoneyFlowRepository creates a new money flow repository implementation
-func NewMoneyFlowRepository(db *gorm.DB) repository.MoneyFlowRepository {
+func NewMoneyFlowRepository(db repository.DB) repository.MoneyFlowRepository {
 	return &moneyFlowRepositoryImpl{db: db}
 }
 
@@ -26,7 +26,8 @@ func (r *moneyFlowRepositoryImpl) Create(ctx context.Context, moneyFlow *domain.
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Create(model).Error; err != nil {
+	res := db.Create(model)
+	if err := res.Error(); err != nil {
 		return err
 	}
 
@@ -44,7 +45,8 @@ func (r *moneyFlowRepositoryImpl) FindByID(ctx context.Context, id uuid.UUID) (*
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Where("id = ?", id).First(&model).Error; err != nil {
+	res := db.Where("id = ?", id).First(&model)
+	if err := res.Error(); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrNotFound
 		}
@@ -60,11 +62,12 @@ func (r *moneyFlowRepositoryImpl) FindByUserID(ctx context.Context, userID uuid.
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Where("user_id = ?", userID).
+	res := db.Where("user_id = ?", userID).
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
-		Find(&models).Error; err != nil {
+		Find(&models)
+	if err := res.Error(); err != nil {
 		return nil, err
 	}
 
@@ -82,9 +85,10 @@ func (r *moneyFlowRepositoryImpl) FindByUserIDAndDateRange(ctx context.Context, 
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Where("user_id = ? AND created_at BETWEEN ? AND ?", userID, startDate, endDate).
+	res := db.Where("user_id = ? AND created_at BETWEEN ? AND ?", userID, startDate, endDate).
 		Order("created_at DESC").
-		Find(&models).Error; err != nil {
+		Find(&models)
+	if err := res.Error(); err != nil {
 		return nil, err
 	}
 
@@ -115,11 +119,11 @@ func (r *moneyFlowRepositoryImpl) Update(ctx context.Context, moneyFlow *domain.
 			"updated_at":  model.UpdatedAt,
 		})
 
-	if result.Error != nil {
-		return result.Error
+	if err := result.Error(); err != nil {
+		return err
 	}
 
-	if result.RowsAffected == 0 {
+	if result.RowsAffected() == 0 {
 		return domain.ErrConflict
 	}
 
@@ -132,11 +136,11 @@ func (r *moneyFlowRepositoryImpl) Delete(ctx context.Context, id uuid.UUID) erro
 
 	result := db.Delete(&MoneyFlowModel{}, "id = ?", id)
 
-	if result.Error != nil {
-		return result.Error
+	if err := result.Error(); err != nil {
+		return err
 	}
 
-	if result.RowsAffected == 0 {
+	if result.RowsAffected() == 0 {
 		return domain.ErrNotFound
 	}
 
@@ -149,10 +153,11 @@ func (r *moneyFlowRepositoryImpl) GetTotalByUserID(ctx context.Context, userID u
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Model(&MoneyFlowModel{}).
+	res := db.Model(&MoneyFlowModel{}).
 		Where("user_id = ?", userID).
 		Select("COALESCE(SUM(amount), 0)").
-		Scan(&total).Error; err != nil {
+		Scan(&total)
+	if err := res.Error(); err != nil {
 		return 0, err
 	}
 
@@ -165,10 +170,11 @@ func (r *moneyFlowRepositoryImpl) GetTotalByUserIDAndCategory(ctx context.Contex
 	// Use GetDB to support transactions
 	db := GetDB(ctx, r.db)
 
-	if err := db.Model(&MoneyFlowModel{}).
+	res := db.Model(&MoneyFlowModel{}).
 		Where("user_id = ? AND category = ?", userID, category).
 		Select("COALESCE(SUM(amount), 0)").
-		Scan(&total).Error; err != nil {
+		Scan(&total)
+	if err := res.Error(); err != nil {
 		return 0, err
 	}
 
