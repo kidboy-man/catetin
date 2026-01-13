@@ -1,0 +1,4 @@
+Notes:
+- Migrations run during app startup (existing behavior).
+- The initdb script ensures uuid-ossp extension exists on first run. If the DB data volume is reused between runs, extension will persist and the script will have no effect.
+- If you want deterministic ordering (migrate first, app second), consider adding a short-lived `migrate` service in docker-compose that runs `go run ./cmd/migrate up` or runs the built binary with migration subcommand before starting `app`.

@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_DB: ${DB_NAME:-catetin}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-catetin} -h localhost -p ${DB_PORT:-5432}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
+  app:
+    build:
+      context: ../../../
+      dockerfile: server-side/deployment/local/Dockerfile
+    env_file:
+      - .env.local
+    depends_on:
+      - db
+    ports:
+      - "${PORT:-8080}:8080"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost ${PORT:-8080} || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  db_data:
